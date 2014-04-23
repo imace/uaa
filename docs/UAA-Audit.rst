@@ -30,6 +30,8 @@ Events
 UserAuthenticationSuccessEvent - when user logs in
 UserAuthenticationFailureEvent/PrincipalAuthenticationFailureEvent - invalid user password
 UserNotFoundEvent/PrincipalAuthenticationFailureEvent - invalid user id
+PasswordChangeEvent - password successfully changed for a user
+PasswordChangeFailureEvent - password failed to change for a user
 
 
 

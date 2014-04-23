@@ -130,7 +130,7 @@ public class PasswordResetEndpoints implements ApplicationEventPublisherAware {
             scimUser.getFamilyName(), today, today);
     }
 
-    private static class PasswordChange {
+    public static class PasswordChange {
         @JsonProperty("username")
         private String username;
 

@@ -8,8 +8,10 @@ import org.cloudfoundry.identity.uaa.authentication.event.UserNotFoundEvent;
 import org.cloudfoundry.identity.uaa.config.YamlServletProfileInitializer;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeEvent;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeFailureEvent;
+import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordResetEndpoints;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -132,7 +134,7 @@ public class AuditCheckMvcMockTests {
         ResultActions result = mockMvc.perform(loginPost);
         //success means a 302 to / (failure is 302 to /login?error...)
         result.andExpect(status().is3xxRedirection())
-            .andExpect(header().string("Location","/"));
+            .andExpect(header().string("Location", "/"));
         verify(listener, times(1)).onApplicationEvent(captor.capture());
         UserAuthenticationSuccessEvent event = (UserAuthenticationSuccessEvent)captor.getValue();
         String userid = event.getUser().getId();
@@ -198,7 +200,27 @@ public class AuditCheckMvcMockTests {
         assertEquals("Old password is incorrect", pw.getMessage());
     }
 
+    @Test
+    public void loginServerPasswordChange() throws Exception {
+        String loginToken = testClient.getOAuthAccessToken("login", "loginsecret", "client_credentials", "oauth.login");
+        PasswordResetEndpoints.PasswordChange pwch = new PasswordResetEndpoints.PasswordChange();
+        pwch.setUsername(testAccounts.getUserName());
+        pwch.setCurrentPassword(testAccounts.getPassword());
+        pwch.setNewPassword("koala2");
+        ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
+        MockHttpServletRequestBuilder changePasswordPost = post("/password_change")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + loginToken)
+            .content(new ObjectMapper().writeValueAsBytes(pwch));
 
+        ResultActions result = mockMvc.perform(changePasswordPost);
+        result.andExpect(status().isOk());
+        verify(listener, times(1)).onApplicationEvent(captor.capture());
+        PasswordChangeEvent pw = (PasswordChangeEvent)captor.getValue();
+        assertEquals(testAccounts.getUserName(), pw.getUser().getUsername());
+        assertEquals("Password changed", pw.getMessage());
+    }
 
 
 }

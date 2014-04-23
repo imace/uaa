@@ -23,13 +23,9 @@ import org.cloudfoundry.identity.uaa.user.UaaUser;
  * @author Dave Syer
  * 
  */
-public class PasswordFailureEvent extends AbstractPasswordChangeEvent {
+public class PasswordChangeFailureEvent extends AbstractPasswordChangeEvent {
 
-    public PasswordFailureEvent(String message, Principal principal) {
-        this(message, null, principal);
-    }
-
-    public PasswordFailureEvent(String message, UaaUser user, Principal principal) {
+    public PasswordChangeFailureEvent(String message, UaaUser user, Principal principal) {
         super(message, user, principal);
     }
 

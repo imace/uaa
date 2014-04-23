@@ -52,13 +52,8 @@ public class PasswordChangeEventPublisher implements ApplicationEventPublisherAw
     }
 
     public void passwordFailure(String userId, Exception e) {
-        UaaUser client = getUser(userId);
-        if (client == null) {
-            publish(new PasswordFailureEvent(e.getMessage(), client, getPrincipal()));
-        }
-        else {
-            publish(new PasswordFailureEvent(e.getMessage(), getPrincipal()));
-        }
+        UaaUser user = getUser(userId);
+        publish(new PasswordChangeFailureEvent(e.getMessage(), user, getPrincipal()));
     }
 
     public void passwordChange(String userId) {

@@ -35,15 +35,15 @@ abstract class AbstractPasswordChangeEvent extends AbstractUaaEvent {
         this.principal = principal;
     }
 
-    UaaUser getUser() {
+    public UaaUser getUser() {
         return user;
     }
 
-    Principal getPrincipal() {
+    public Principal getPrincipal() {
         return principal;
     }
 
-    String getMessage() {
+    public String getMessage() {
         return message;
     }
 

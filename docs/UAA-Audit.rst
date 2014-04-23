@@ -19,12 +19,19 @@ Each audit event must at a minimum contain
   * Date/Time of the event
   * Principal - if authenticated
   * Client ID
+
   * Authorization type (basic,token)
   * Path - the request path
   * Result Status Code
 
-Authorization Code Requests
+Events
 ==============================================================
+
+UserAuthenticationSuccessEvent - when user logs in
+UserAuthenticationFailureEvent/PrincipalAuthenticationFailureEvent - invalid user password
+UserNotFoundEvent/PrincipalAuthenticationFailureEvent - invalid user id
+
+
 
 Urls to denote for auditing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

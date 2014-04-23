@@ -26,12 +26,16 @@ import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Collection;
 
 public class PasswordResetEndpointsTest {
 
@@ -86,8 +90,6 @@ public class PasswordResetEndpointsTest {
         Mockito.when(expiringCodeStore.retrieveCode("secret_code"))
                 .thenReturn(new ExpiringCode("secret_code", new Timestamp(System.currentTimeMillis()), "eyedee"));
 
-        Mockito.when(scimUserProvisioning.changePassword("eyedee", null, "new_secret")).thenReturn(true);
-
         ScimUser scimUser = new ScimUser("eyedee", "userman", "User", "Man");
         scimUser.addEmail("user@example.com");
         Mockito.when(scimUserProvisioning.retrieve("eyedee")).thenReturn(scimUser);
@@ -97,9 +99,13 @@ public class PasswordResetEndpointsTest {
                 .content("{\"code\":\"secret_code\",\"new_password\":\"new_secret\"}")
                 .accept(APPLICATION_JSON);
 
+        SecurityContextHolder.getContext().setAuthentication(new MockAuthentication());
+
         mockMvc.perform(post)
                 .andExpect(status().isOk())
                 .andExpect(content().string("userman"));
+
+        Mockito.verify(scimUserProvisioning).changePassword("eyedee", null, "new_secret");
     }
 
     @Test
@@ -109,16 +115,18 @@ public class PasswordResetEndpointsTest {
         Mockito.when(scimUserProvisioning.query("userName eq 'userman'"))
                 .thenReturn(Arrays.asList(user));
 
-        Mockito.when(scimUserProvisioning.changePassword("id001", "secret", "new_secret")).thenReturn(true);
-
         MockHttpServletRequestBuilder post = post("/password_change")
                 .contentType(APPLICATION_JSON)
                 .content("{\"username\":\"userman\",\"current_password\":\"secret\",\"new_password\":\"new_secret\"}")
                 .accept(APPLICATION_JSON);
 
+        SecurityContextHolder.getContext().setAuthentication(new MockAuthentication());
+
         mockMvc.perform(post)
                 .andExpect(status().isOk())
                 .andExpect(content().string("userman"));
+
+        Mockito.verify(scimUserProvisioning).changePassword("id001", "secret", "new_secret");
     }
 
     @Test
@@ -130,5 +138,42 @@ public class PasswordResetEndpointsTest {
 
         mockMvc.perform(post)
                 .andExpect(status().isBadRequest());
+    }
+
+    private static class MockAuthentication implements Authentication {
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            return null;
+        }
+
+        @Override
+        public Object getCredentials() {
+            return null;
+        }
+
+        @Override
+        public Object getDetails() {
+            return null;
+        }
+
+        @Override
+        public Object getPrincipal() {
+            return null;
+        }
+
+        @Override
+        public boolean isAuthenticated() {
+            return false;
+        }
+
+        @Override
+        public void setAuthenticated(boolean b) throws IllegalArgumentException {
+
+        }
+
+        @Override
+        public String getName() {
+            return null;
+        }
     }
 }

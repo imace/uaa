@@ -23,11 +23,10 @@ import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.test.MockAuthentication;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -35,7 +34,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
-import java.util.Collection;
 
 public class PasswordResetEndpointsTest {
 
@@ -140,40 +138,4 @@ public class PasswordResetEndpointsTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private static class MockAuthentication implements Authentication {
-        @Override
-        public Collection<? extends GrantedAuthority> getAuthorities() {
-            return null;
-        }
-
-        @Override
-        public Object getCredentials() {
-            return null;
-        }
-
-        @Override
-        public Object getDetails() {
-            return null;
-        }
-
-        @Override
-        public Object getPrincipal() {
-            return null;
-        }
-
-        @Override
-        public boolean isAuthenticated() {
-            return false;
-        }
-
-        @Override
-        public void setAuthenticated(boolean b) throws IllegalArgumentException {
-
-        }
-
-        @Override
-        public String getName() {
-            return null;
-        }
-    }
 }

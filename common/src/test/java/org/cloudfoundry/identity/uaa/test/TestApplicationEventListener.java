@@ -13,20 +13,20 @@
 package org.cloudfoundry.identity.uaa.test;
 
 import org.springframework.context.ApplicationEvent;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationListener;
 
-public class TestApplicationEventPublisher<T extends ApplicationEvent> extends TestApplicationEventHandler<T> implements ApplicationEventPublisher {
+public class TestApplicationEventListener<T extends ApplicationEvent> extends TestApplicationEventHandler<T> implements ApplicationListener<T> {
 
-    public static <K extends ApplicationEvent> TestApplicationEventPublisher<K> forEventClass(Class<K> eventType) {
-        return new TestApplicationEventPublisher<K>(eventType);
+    public static <K extends ApplicationEvent> TestApplicationEventListener<K> forEventClass(Class<K> eventType) {
+        return new TestApplicationEventListener<K>(eventType) {};
     }
 
-    protected TestApplicationEventPublisher(Class<T> eventType) {
+    protected TestApplicationEventListener(Class<T> eventType) {
         super(eventType);
     }
 
     @Override
-    public void publishEvent(ApplicationEvent applicationEvent) {
-        handleEvent(applicationEvent);
+    public void onApplicationEvent(T event) {
+        handleEvent(event);
     }
 }

@@ -36,7 +36,8 @@ public enum AuditEventType {
     ClientDeleteSuccess(12),
     ClientApprovalsDeleted(13),
     ClientAuthenticationSuccess(14),
-    ClientAuthenticationFailure(15);
+    ClientAuthenticationFailure(15),
+    ApprovalModifiedEvent(16);
 
 
     private final int code;

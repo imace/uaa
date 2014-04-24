@@ -12,21 +12,44 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.test;
 
-import org.springframework.context.ApplicationEvent;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 
-public class TestApplicationEventPublisher<T extends ApplicationEvent> extends TestApplicationEventHandler<T> implements ApplicationEventPublisher {
+import java.util.Collection;
 
-    public static <K extends ApplicationEvent> TestApplicationEventPublisher<K> forEventClass(Class<K> eventType) {
-        return new TestApplicationEventPublisher<K>(eventType);
-    }
-
-    protected TestApplicationEventPublisher(Class<T> eventType) {
-        super(eventType);
+public class MockAuthentication implements Authentication {
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return null;
     }
 
     @Override
-    public void publishEvent(ApplicationEvent applicationEvent) {
-        handleEvent(applicationEvent);
+    public Object getCredentials() {
+        return null;
+    }
+
+    @Override
+    public Object getDetails() {
+        return null;
+    }
+
+    @Override
+    public Object getPrincipal() {
+        return null;
+    }
+
+    @Override
+    public boolean isAuthenticated() {
+        return false;
+    }
+
+    @Override
+    public void setAuthenticated(boolean b) throws IllegalArgumentException {
+
+    }
+
+    @Override
+    public String getName() {
+        return null;
     }
 }

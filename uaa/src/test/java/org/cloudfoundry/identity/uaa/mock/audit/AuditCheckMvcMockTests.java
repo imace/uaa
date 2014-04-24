@@ -12,20 +12,32 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.mock.audit;
 
-import com.googlecode.flyway.core.Flyway;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.apache.commons.codec.binary.Base64;
 import org.cloudfoundry.identity.uaa.audit.event.AbstractUaaEvent;
+import org.cloudfoundry.identity.uaa.audit.event.ApprovalModifiedEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.ClientAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.ClientAuthenticationSuccessEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.PrincipalAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.UserAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.UserAuthenticationSuccessEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.UserNotFoundEvent;
+import org.cloudfoundry.identity.uaa.oauth.approval.Approval;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeEvent;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeFailureEvent;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordResetEndpoints;
 import org.cloudfoundry.identity.uaa.test.DefaultIntegrationTestConfig;
 import org.cloudfoundry.identity.uaa.test.IntegrationTestContextLoader;
+import org.cloudfoundry.identity.uaa.test.TestApplicationEventListener;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -39,26 +51,21 @@ import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.provider.BaseClientDetails;
+import org.springframework.security.oauth2.provider.ClientDetails;
+import org.springframework.security.oauth2.provider.ClientRegistrationService;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.googlecode.flyway.core.Flyway;
+import junit.framework.Assert;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebAppConfiguration
@@ -75,15 +82,21 @@ public class AuditCheckMvcMockTests {
     @Autowired
     Flyway flyway;
 
+    @Autowired
+    ClientRegistrationService clientRegistrationService;
+
     private ApplicationListener<AbstractUaaEvent> listener;
     private MockMvc mockMvc;
     private TestClient testClient;
     private UaaTestAccounts testAccounts;
+    private TestApplicationEventListener<AbstractUaaEvent> testListener;
 
     @Before
     public void setUp() throws Exception {
         listener = mock(new DefaultApplicationListener<AbstractUaaEvent>() {}.getClass());
         webApplicationContext.addApplicationListener(listener);
+        testListener = TestApplicationEventListener.forEventClass(AbstractUaaEvent.class);
+        webApplicationContext.addApplicationListener(testListener);
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .addFilter(filterChainProxy)
                 .build();
@@ -173,7 +186,7 @@ public class AuditCheckMvcMockTests {
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
 
         String marissaToken = testClient.getUserOAuthAccessToken("app", "appclientsecret", testAccounts.getUserName(), testAccounts.getPassword(), "password.write");
-        verify(listener, times(2)).onApplicationEvent(captor.capture());
+        verify(listener, times(3)).onApplicationEvent(captor.capture());
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
 
         MockHttpServletRequestBuilder changePasswordPut = put("/Users/"+userid+"/password")
@@ -188,7 +201,7 @@ public class AuditCheckMvcMockTests {
         mockMvc.perform(changePasswordPut)
                 .andExpect(status().isOk());
 
-        verify(listener, times(3)).onApplicationEvent(captor.capture());
+        verify(listener, times(4)).onApplicationEvent(captor.capture());
         assertTrue(captor.getValue() instanceof PasswordChangeEvent);
         PasswordChangeEvent pw = (PasswordChangeEvent)captor.getValue();
         assertEquals(testAccounts.getUserName(), pw.getUser().getUsername());
@@ -214,7 +227,7 @@ public class AuditCheckMvcMockTests {
 
         String marissaToken = testClient.getUserOAuthAccessToken("app", "appclientsecret", testAccounts.getUserName(), testAccounts.getPassword(), "password.write");
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener, times(2)).onApplicationEvent(captor.capture());
+        verify(listener, times(3)).onApplicationEvent(captor.capture());
 
         MockHttpServletRequestBuilder changePasswordPut = put("/Users/"+userid+"/password")
             .accept(MediaType.APPLICATION_JSON_VALUE)
@@ -229,7 +242,7 @@ public class AuditCheckMvcMockTests {
                 .andExpect(status().isUnauthorized());
 
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener, times(3)).onApplicationEvent(captor.capture());
+        verify(listener, times(4)).onApplicationEvent(captor.capture());
 
         assertTrue(captor.getValue() instanceof PasswordChangeFailureEvent);
         PasswordChangeFailureEvent pwfe = (PasswordChangeFailureEvent)captor.getValue();
@@ -239,7 +252,7 @@ public class AuditCheckMvcMockTests {
 
     @Test
     public void loginServerPasswordChange() throws Exception {
-        String loginToken = testClient.getOAuthAccessToken("login", "loginsecret", "client_credentials", "oauth.login");
+        String loginToken = testClient.getClientCredentialsOAuthAccessToken("login", "loginsecret", "oauth.login");
 
         PasswordResetEndpoints.PasswordChange pwch = new PasswordResetEndpoints.PasswordChange();
         pwch.setUsername(testAccounts.getUserName());
@@ -256,7 +269,7 @@ public class AuditCheckMvcMockTests {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener).onApplicationEvent(captor.capture());
+        verify(listener, times(2)).onApplicationEvent(captor.capture());
         PasswordChangeEvent pce = (PasswordChangeEvent)captor.getValue();
         assertEquals(testAccounts.getUserName(), pce.getUser().getUsername());
         assertEquals("Password changed", pce.getMessage());
@@ -264,7 +277,7 @@ public class AuditCheckMvcMockTests {
 
     @Test
     public void loginServerInvalidPasswordChange() throws Exception {
-        String loginToken = testClient.getOAuthAccessToken("login", "loginsecret", "client_credentials", "oauth.login");
+        String loginToken = testClient.getClientCredentialsOAuthAccessToken("login", "loginsecret", "oauth.login");
 
         PasswordResetEndpoints.PasswordChange pwch = new PasswordResetEndpoints.PasswordChange();
         pwch.setUsername(testAccounts.getUserName());
@@ -281,7 +294,7 @@ public class AuditCheckMvcMockTests {
             .andExpect(status().isUnauthorized());
 
         ArgumentCaptor<AbstractUaaEvent> captor = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener).onApplicationEvent(captor.capture());
+        verify(listener, times(2)).onApplicationEvent(captor.capture());
         PasswordChangeFailureEvent pce = (PasswordChangeFailureEvent) captor.getValue();
         assertEquals(testAccounts.getUserName(), pce.getUser().getUsername());
         assertEquals("Old password is incorrect", pce.getMessage());
@@ -290,7 +303,7 @@ public class AuditCheckMvcMockTests {
     @Test
     public void clientAuthenticationSuccess() throws Exception {
         ArgumentCaptor<AbstractUaaEvent> captor = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        testClient.getOAuthAccessToken("login", "loginsecret", "client_credentials", "oauth.login");
+        testClient.getClientCredentialsOAuthAccessToken("login", "loginsecret", "oauth.login");
         verify(listener).onApplicationEvent(captor.capture());
         ClientAuthenticationSuccessEvent event = (ClientAuthenticationSuccessEvent)captor.getValue();
         assertEquals("login", event.getClientId());
@@ -312,10 +325,34 @@ public class AuditCheckMvcMockTests {
         assertEquals("login", event.getClientId());
     }
 
+    @Test
+    public void testUserApprovalAdded() throws Exception {
+        clientRegistrationService.updateClientDetails(new BaseClientDetails("login", "oauth", "oauth.approvals", "password", "oauth.login"));
+
+        String marissaToken = testClient.getUserOAuthAccessToken("login", "loginsecret", testAccounts.getUserName(), testAccounts.getPassword(), "oauth.approvals");
+
+        Approval[] approvals = {new Approval(testAccounts.getUserName(), "app", "cloud_controller.read", 1000, Approval.ApprovalStatus.APPROVED)};
+
+        MockHttpServletRequestBuilder approvalsPut = put("/approvals")
+                .accept(MediaType.APPLICATION_JSON_VALUE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + marissaToken)
+                .content(new ObjectMapper().writeValueAsBytes(approvals));
+
+        testListener.clearEvents();
+
+        mockMvc.perform(approvalsPut)
+                .andExpect(status().isOk());
+
+        Assert.assertEquals(1, testListener.getEventCount());
+
+        ApprovalModifiedEvent approvalModifiedEvent = (ApprovalModifiedEvent) testListener.getLatestEvent();
+        Assert.assertEquals("marissa", approvalModifiedEvent.getPrincipal().getName());
+    }
+
     private class DefaultApplicationListener<T extends ApplicationEvent> implements ApplicationListener<T> {
         @Override
-        public void onApplicationEvent(T t) {
-
+        public void onApplicationEvent(T event) {
         }
     }
 }

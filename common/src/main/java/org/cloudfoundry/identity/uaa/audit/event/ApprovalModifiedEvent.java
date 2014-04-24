@@ -34,6 +34,7 @@ public class ApprovalModifiedEvent extends AbstractUaaEvent {
         principal = authentication;
     }
 
+    @Override
     public Approval getSource() {
         return (Approval) super.getSource();
     }

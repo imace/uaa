@@ -14,6 +14,7 @@ package org.cloudfoundry.identity.uaa.mock.audit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.apache.commons.codec.binary.Base64;
 import org.cloudfoundry.identity.uaa.audit.event.AbstractUaaEvent;
 import org.cloudfoundry.identity.uaa.audit.event.ApprovalModifiedEvent;
+import org.cloudfoundry.identity.uaa.audit.event.TokenIssuedEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.ClientAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.ClientAuthenticationSuccessEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.PrincipalAuthenticationFailureEvent;
@@ -52,7 +54,6 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.provider.BaseClientDetails;
-import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.ClientRegistrationService;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.annotation.DirtiesContext;
@@ -171,7 +172,6 @@ public class AuditCheckMvcMockTests {
 
     @Test
     public void userChangePasswordTest() throws Exception {
-        ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
         MockHttpServletRequestBuilder loginPost = post("/login.do")
             .accept(MediaType.APPLICATION_JSON_VALUE)
             .param("username", testAccounts.getUserName())
@@ -180,28 +180,30 @@ public class AuditCheckMvcMockTests {
         mockMvc.perform(loginPost)
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "/"));
+        ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
         verify(listener, times(1)).onApplicationEvent(captor.capture());
         UserAuthenticationSuccessEvent event = (UserAuthenticationSuccessEvent)captor.getValue();
         String userid = event.getUser().getId();
-        captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
 
         String marissaToken = testClient.getUserOAuthAccessToken("app", "appclientsecret", testAccounts.getUserName(), testAccounts.getPassword(), "password.write");
-        verify(listener, times(3)).onApplicationEvent(captor.capture());
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
+        verify(listener, times(4)).onApplicationEvent(captor.capture());
+        assertTrue(captor.getValue() instanceof TokenIssuedEvent);
 
         MockHttpServletRequestBuilder changePasswordPut = put("/Users/"+userid+"/password")
             .accept(MediaType.APPLICATION_JSON_VALUE)
             .contentType(MediaType.APPLICATION_JSON)
             .header("Authorization", "Bearer " + marissaToken)
             .content("{\n" +
-                "  \"password\": \"koala2\",\n" +
-                "  \"oldPassword\": \""+testAccounts.getPassword()+"\"\n" +
-                "}");
+                    "  \"password\": \"koala2\",\n" +
+                    "  \"oldPassword\": \"" + testAccounts.getPassword() + "\"\n" +
+                    "}");
 
         mockMvc.perform(changePasswordPut)
                 .andExpect(status().isOk());
 
-        verify(listener, times(4)).onApplicationEvent(captor.capture());
+        captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
+        verify(listener, times(5)).onApplicationEvent(captor.capture());
         assertTrue(captor.getValue() instanceof PasswordChangeEvent);
         PasswordChangeEvent pw = (PasswordChangeEvent)captor.getValue();
         assertEquals(testAccounts.getUserName(), pw.getUser().getUsername());
@@ -227,7 +229,8 @@ public class AuditCheckMvcMockTests {
 
         String marissaToken = testClient.getUserOAuthAccessToken("app", "appclientsecret", testAccounts.getUserName(), testAccounts.getPassword(), "password.write");
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener, times(3)).onApplicationEvent(captor.capture());
+        verify(listener, times(4)).onApplicationEvent(captor.capture());
+        assertTrue(captor.getValue() instanceof TokenIssuedEvent);
 
         MockHttpServletRequestBuilder changePasswordPut = put("/Users/"+userid+"/password")
             .accept(MediaType.APPLICATION_JSON_VALUE)
@@ -242,7 +245,7 @@ public class AuditCheckMvcMockTests {
                 .andExpect(status().isUnauthorized());
 
         captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener, times(4)).onApplicationEvent(captor.capture());
+        verify(listener, times(5)).onApplicationEvent(captor.capture());
 
         assertTrue(captor.getValue() instanceof PasswordChangeFailureEvent);
         PasswordChangeFailureEvent pwfe = (PasswordChangeFailureEvent)captor.getValue();
@@ -269,7 +272,7 @@ public class AuditCheckMvcMockTests {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener, times(2)).onApplicationEvent(captor.capture());
+        verify(listener, times(3)).onApplicationEvent(captor.capture());
         PasswordChangeEvent pce = (PasswordChangeEvent)captor.getValue();
         assertEquals(testAccounts.getUserName(), pce.getUser().getUsername());
         assertEquals("Password changed", pce.getMessage());
@@ -294,7 +297,7 @@ public class AuditCheckMvcMockTests {
             .andExpect(status().isUnauthorized());
 
         ArgumentCaptor<AbstractUaaEvent> captor = ArgumentCaptor.forClass(AbstractUaaEvent.class);
-        verify(listener, times(2)).onApplicationEvent(captor.capture());
+        verify(listener, times(3)).onApplicationEvent(captor.capture());
         PasswordChangeFailureEvent pce = (PasswordChangeFailureEvent) captor.getValue();
         assertEquals(testAccounts.getUserName(), pce.getUser().getUsername());
         assertEquals("Old password is incorrect", pce.getMessage());
@@ -304,8 +307,8 @@ public class AuditCheckMvcMockTests {
     public void clientAuthenticationSuccess() throws Exception {
         ArgumentCaptor<AbstractUaaEvent> captor = ArgumentCaptor.forClass(AbstractUaaEvent.class);
         testClient.getClientCredentialsOAuthAccessToken("login", "loginsecret", "oauth.login");
-        verify(listener).onApplicationEvent(captor.capture());
-        ClientAuthenticationSuccessEvent event = (ClientAuthenticationSuccessEvent)captor.getValue();
+        verify(listener, times(2)).onApplicationEvent(captor.capture());
+        ClientAuthenticationSuccessEvent event = (ClientAuthenticationSuccessEvent)captor.getAllValues().get(0);
         assertEquals("login", event.getClientId());
     }
 

@@ -16,6 +16,7 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.OK;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
@@ -23,12 +24,15 @@ import org.cloudfoundry.identity.uaa.password.event.PasswordChangeEvent;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeFailureEvent;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -100,6 +104,12 @@ public class PasswordResetEndpoints implements ApplicationEventPublisherAware {
             scimUserProvisioning.changePassword(user.getId(), oldPassword, passwordChange.getNewPassword());
             publish(new PasswordChangeEvent("Password changed", getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
             return new ResponseEntity<String>(user.getUserName(), OK);
+        } catch (BadCredentialsException x) {
+            publish(new PasswordChangeFailureEvent(x.getMessage(), getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
+            return new ResponseEntity<String>(UNAUTHORIZED);
+        } catch (ScimResourceNotFoundException x) {
+            publish(new PasswordChangeFailureEvent(x.getMessage(), getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
+            return new ResponseEntity<String>(HttpStatus.NOT_FOUND);
         } catch (Exception x) {
             publish(new PasswordChangeFailureEvent(x.getMessage(), getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
             return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);
@@ -117,6 +127,12 @@ public class PasswordResetEndpoints implements ApplicationEventPublisherAware {
             scimUserProvisioning.changePassword(userId, null, passwordChange.getNewPassword());
             publish(new PasswordChangeEvent("Password changed", getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
             return new ResponseEntity<String>(user.getUserName(), OK);
+        } catch (BadCredentialsException x) {
+            publish(new PasswordChangeFailureEvent(x.getMessage(), getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
+            return new ResponseEntity<String>(UNAUTHORIZED);
+        } catch (ScimResourceNotFoundException x) {
+            publish(new PasswordChangeFailureEvent(x.getMessage(), getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
+            return new ResponseEntity<String>(HttpStatus.NOT_FOUND);
         } catch (Exception x) {
             publish(new PasswordChangeFailureEvent(x.getMessage(), getUaaUser(user), SecurityContextHolder.getContext().getAuthentication()));
             return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);

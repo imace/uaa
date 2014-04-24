@@ -32,6 +32,8 @@ UserAuthenticationFailureEvent/PrincipalAuthenticationFailureEvent - invalid use
 UserNotFoundEvent/PrincipalAuthenticationFailureEvent - invalid user id
 PasswordChangeEvent - password successfully changed for a user
 PasswordChangeFailureEvent - password failed to change for a user
+ClientAuthenticationSuccessEvent - client authentication
+ClientAuthenticationFailureEvent - client authentication
 
 
 

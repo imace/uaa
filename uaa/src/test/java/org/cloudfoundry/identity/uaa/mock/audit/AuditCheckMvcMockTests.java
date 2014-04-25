@@ -12,22 +12,8 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.mock.audit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertThat;
-import static org.mockito.Matchers.contains;
-import static org.mockito.Matchers.matches;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
+import com.googlecode.flyway.core.Flyway;
+import junit.framework.Assert;
 import org.apache.commons.codec.binary.Base64;
 import org.cloudfoundry.identity.uaa.audit.AuditEventType;
 import org.cloudfoundry.identity.uaa.audit.event.AbstractUaaEvent;
@@ -51,7 +37,6 @@ import org.cloudfoundry.identity.uaa.test.TestApplicationEventListener;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -75,8 +60,19 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 
-import com.googlecode.flyway.core.Flyway;
-import junit.framework.Assert;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebAppConfiguration
@@ -430,8 +426,45 @@ public class AuditCheckMvcMockTests {
         Assert.assertEquals(testAccounts.getAdminClientId(), userModifiedEvent.getAuthentication().getName());
         Assert.assertEquals(username, userModifiedEvent.getUsername());
         assertEquals(AuditEventType.UserCreatedEvent, userModifiedEvent.getAuditEvent().getType());
+    }
+
+    @Test
+    public void testUserCreatedEventDuringLoginServerAuthorize() throws Exception {
+        clientRegistrationService.updateClientDetails(new BaseClientDetails("login", "oauth", "oauth.approvals", "authorization_code,password,client_credentials", "oauth.login"));
+        String loginToken = testClient.getClientCredentialsOAuthAccessToken(
+            "login",
+            "loginsecret",
+            "oauth.login");
+
+        MockHttpServletRequestBuilder userPost = post("/oauth/authorize")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + loginToken)
+            .param("source", "login")
+            .param("add_new", "true")
+            .param("username", "jacob")
+            .param("name", "Jacob Gyllenhammer")
+            .param("email", "jacob@gyllenhammer.non")
+            .param("external_id","jacob")
+            .param("response_type","code")
+            .param("client_id","login")
+            .param("redirect_uri", "http://localhost:8080/login")
+            .param("state","erw342");
+
+        testListener.clearEvents();
+
+        mockMvc.perform(userPost)
+            .andExpect(status().isOk());
+
+        Assert.assertEquals(2, testListener.getEventCount());
+
+        UserModifiedEvent userModifiedEvent = (UserModifiedEvent) testListener.getEvents().get(0);
+        Assert.assertEquals("login", userModifiedEvent.getAuthentication().getName());
+        Assert.assertEquals("jacob", userModifiedEvent.getUsername());
+        assertEquals(AuditEventType.UserCreatedEvent, userModifiedEvent.getAuditEvent().getType());
 
     }
+
 
     @Test
     public void testUserModifiedEvent() throws Exception {

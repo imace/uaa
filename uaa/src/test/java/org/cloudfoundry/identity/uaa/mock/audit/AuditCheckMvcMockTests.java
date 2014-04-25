@@ -15,10 +15,12 @@ package org.cloudfoundry.identity.uaa.mock.audit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Matchers.contains;
 import static org.mockito.Matchers.matches;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -27,9 +29,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.apache.commons.codec.binary.Base64;
+import org.cloudfoundry.identity.uaa.audit.AuditEventType;
 import org.cloudfoundry.identity.uaa.audit.event.AbstractUaaEvent;
 import org.cloudfoundry.identity.uaa.audit.event.ApprovalModifiedEvent;
 import org.cloudfoundry.identity.uaa.audit.event.TokenIssuedEvent;
+import org.cloudfoundry.identity.uaa.audit.event.UserModifiedEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.ClientAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.ClientAuthenticationSuccessEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.PrincipalAuthenticationFailureEvent;
@@ -39,6 +43,7 @@ import org.cloudfoundry.identity.uaa.authentication.event.UserNotFoundEvent;
 import org.cloudfoundry.identity.uaa.oauth.approval.Approval;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeEvent;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeFailureEvent;
+import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordResetEndpoints;
 import org.cloudfoundry.identity.uaa.test.DefaultIntegrationTestConfig;
 import org.cloudfoundry.identity.uaa.test.IntegrationTestContextLoader;
@@ -46,6 +51,7 @@ import org.cloudfoundry.identity.uaa.test.TestApplicationEventListener;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,6 +70,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
@@ -395,17 +402,120 @@ public class AuditCheckMvcMockTests {
 
     @Test
     public void testUserCreatedEvent() throws Exception {
+        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
+            testAccounts.getAdminClientId(),
+            testAccounts.getAdminClientSecret(),
+            "uaa.admin,scim.write");
+
+        String username = "jacob", firstName = "Jacob", lastName = "Gyllenhammar", email = "jacob@gyllenhammar.non";
+        ScimUser user = new ScimUser();
+        user.setUserName(username);
+        user.setName(new ScimUser.Name(firstName, lastName));
+        user.addEmail(email);
+
+        MockHttpServletRequestBuilder userPost = post("/Users")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + adminToken)
+            .content(new ObjectMapper().writeValueAsBytes(user));
+
+        testListener.clearEvents();
+
+        mockMvc.perform(userPost)
+            .andExpect(status().isCreated());
+
+        Assert.assertEquals(1, testListener.getEventCount());
+
+        UserModifiedEvent userModifiedEvent = (UserModifiedEvent) testListener.getLatestEvent();
+        Assert.assertEquals(testAccounts.getAdminClientId(), userModifiedEvent.getAuthentication().getName());
+        Assert.assertEquals(username, userModifiedEvent.getUsername());
+        assertEquals(AuditEventType.UserCreatedEvent, userModifiedEvent.getAuditEvent().getType());
 
     }
 
     @Test
     public void testUserModifiedEvent() throws Exception {
+        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
+            testAccounts.getAdminClientId(),
+            testAccounts.getAdminClientSecret(),
+            "uaa.admin,scim.write");
 
+        String username = "jacob", firstName = "Jacob", lastName = "Gyllenhammar", email = "jacob@gyllenhammar.non";
+        String modifiedFirstName = firstName+lastName;
+        ScimUser user = new ScimUser();
+        user.setUserName(username);
+        user.setName(new ScimUser.Name(firstName, lastName));
+        user.addEmail(email);
+
+        MockHttpServletRequestBuilder userPost = post("/Users")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + adminToken)
+            .content(new ObjectMapper().writeValueAsBytes(user));
+
+        ResultActions result = mockMvc.perform(userPost)
+            .andExpect(status().isCreated());
+
+        user = new ObjectMapper().readValue(result.andReturn().getResponse().getContentAsByteArray(), ScimUser.class);
+        testListener.clearEvents();
+
+        user.setName(new ScimUser.Name(modifiedFirstName, lastName));
+        MockHttpServletRequestBuilder userPut = put("/Users/"+user.getId())
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + adminToken)
+            .header("If-Match", user.getVersion())
+            .content(new ObjectMapper().writeValueAsBytes(user));
+
+        mockMvc.perform(userPut).andExpect(status().isOk());
+
+        Assert.assertEquals(1, testListener.getEventCount());
+
+        UserModifiedEvent userModifiedEvent = (UserModifiedEvent) testListener.getLatestEvent();
+        Assert.assertEquals(testAccounts.getAdminClientId(), userModifiedEvent.getAuthentication().getName());
+        Assert.assertEquals(username, userModifiedEvent.getUsername());
+        assertEquals(AuditEventType.UserModifiedEvent, userModifiedEvent.getAuditEvent().getType());
     }
 
     @Test
     public void testUserVerifiedEvent() throws Exception {
+        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
+            testAccounts.getAdminClientId(),
+            testAccounts.getAdminClientSecret(),
+            "uaa.admin,scim.write");
 
+        String username = "jacob", firstName = "Jacob", lastName = "Gyllenhammar", email = "jacob@gyllenhammar.non";
+        String modifiedFirstName = firstName+lastName;
+        ScimUser user = new ScimUser();
+        user.setUserName(username);
+        user.setName(new ScimUser.Name(firstName, lastName));
+        user.addEmail(email);
+
+        MockHttpServletRequestBuilder userPost = post("/Users")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + adminToken)
+            .content(new ObjectMapper().writeValueAsBytes(user));
+
+        ResultActions result = mockMvc.perform(userPost)
+            .andExpect(status().isCreated());
+        user = new ObjectMapper().readValue(result.andReturn().getResponse().getContentAsByteArray(), ScimUser.class);
+
+        testListener.clearEvents();
+
+        MockHttpServletRequestBuilder verifyGet = get("/Users/" + user.getId() + "/verify")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .header("Authorization", "Bearer " + adminToken)
+            .header("If-Match", user.getVersion());
+
+        mockMvc.perform(verifyGet).andDo(print());//.andExpect(status().isOk());
+
+        Assert.assertEquals(1, testListener.getEventCount());
+
+        UserModifiedEvent userModifiedEvent = (UserModifiedEvent) testListener.getLatestEvent();
+        Assert.assertEquals(testAccounts.getAdminClientId(), userModifiedEvent.getAuthentication().getName());
+        Assert.assertEquals(username, userModifiedEvent.getUsername());
+        assertEquals(AuditEventType.UserVerifiedEvent, userModifiedEvent.getAuditEvent().getType());
     }
 
 

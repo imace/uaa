@@ -77,6 +77,14 @@ public class UserModifiedEvent extends AbstractUaaEvent {
             data);
     }
 
+    public String getUserId() {
+        return userId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
     protected static Authentication getContextAuthentication() {
         Authentication a = SecurityContextHolder.getContext().getAuthentication();
         if (a==null) {

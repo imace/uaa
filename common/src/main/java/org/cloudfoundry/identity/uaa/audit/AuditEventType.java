@@ -41,7 +41,8 @@ public enum AuditEventType {
     TokenIssuedEvent(17),
     UserCreatedEvent(18),
     UserModifiedEvent(19),
-    UserVerifiedEvent(20);
+    UserVerifiedEvent(20),
+    PasswordResetRequest(21);
 
 
     private final int code;

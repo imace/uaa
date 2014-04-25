@@ -29,6 +29,7 @@ import org.cloudfoundry.identity.uaa.authentication.event.UserNotFoundEvent;
 import org.cloudfoundry.identity.uaa.oauth.approval.Approval;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeEvent;
 import org.cloudfoundry.identity.uaa.password.event.PasswordChangeFailureEvent;
+import org.cloudfoundry.identity.uaa.password.event.ResetPasswordRequestEvent;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordResetEndpoints;
 import org.cloudfoundry.identity.uaa.test.DefaultIntegrationTestConfig;
@@ -551,6 +552,29 @@ public class AuditCheckMvcMockTests {
         assertEquals(AuditEventType.UserVerifiedEvent, userModifiedEvent.getAuditEvent().getType());
     }
 
+    @Test
+    public void passwordResetRequestEvent() throws Exception {
+        String loginToken = testClient.getClientCredentialsOAuthAccessToken("login", "loginsecret", "oauth.login");
+
+
+        testListener.clearEvents();
+        MockHttpServletRequestBuilder changePasswordPost = post("/password_resets")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + loginToken)
+            .content("marissa@test.org");
+
+        ResultActions result = mockMvc.perform(changePasswordPost)
+            .andExpect(status().isCreated());
+
+        String code = result.andReturn().getResponse().getContentAsString();
+
+        assertEquals(1, testListener.getEventCount());
+        assertEquals(ResetPasswordRequestEvent.class, testListener.getLatestEvent().getClass());
+        ResetPasswordRequestEvent event = (ResetPasswordRequestEvent) testListener.getLatestEvent();
+        assertEquals("marissa@test.org", event.getAuditEvent().getPrincipalId());
+        assertEquals(code, event.getAuditEvent().getData());
+    }
 
 
     private class DefaultApplicationListener<T extends ApplicationEvent> implements ApplicationListener<T> {

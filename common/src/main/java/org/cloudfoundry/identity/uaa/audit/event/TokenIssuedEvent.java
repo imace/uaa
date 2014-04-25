@@ -16,6 +16,7 @@ import org.cloudfoundry.identity.uaa.audit.AuditEvent;
 import org.cloudfoundry.identity.uaa.audit.AuditEventType;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.jwt.Jwt;
 import org.springframework.security.jwt.JwtHelper;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
@@ -26,24 +27,18 @@ import java.util.Map;
 
 public class TokenIssuedEvent extends AbstractUaaEvent {
 
-    private final Principal principal;
     private ObjectMapper mapper = new ObjectMapper();
 
-    public TokenIssuedEvent(OAuth2AccessToken source, Principal principal) {
-        super(source);
+    public TokenIssuedEvent(OAuth2AccessToken source, Authentication principal) {
+        super(source, principal);
         if (!OAuth2AccessToken.class.isAssignableFrom(source.getClass())) {
             throw new IllegalArgumentException();
         }
-        this.principal = principal;
     }
 
     @Override
     public OAuth2AccessToken getSource() {
         return (OAuth2AccessToken) super.getSource();
-    }
-
-    public Principal getPrincipal() {
-        return principal;
     }
 
     @Override
@@ -52,7 +47,7 @@ public class TokenIssuedEvent extends AbstractUaaEvent {
         try {
             data = mapper.writeValueAsString(getSource().getScope());
         } catch (IOException e) { }
-        return createAuditRecord(getPrincipalId(), AuditEventType.TokenIssuedEvent, getOrigin(principal), data);
+        return createAuditRecord(getPrincipalId(), AuditEventType.TokenIssuedEvent, getOrigin(getAuthentication()), data);
     }
 
     private String getPrincipalId() {

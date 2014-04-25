@@ -18,20 +18,19 @@ import org.cloudfoundry.identity.uaa.audit.AuditEvent;
 import org.cloudfoundry.identity.uaa.audit.AuditEventType;
 import org.cloudfoundry.identity.uaa.oauth.approval.Approval;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
 import java.security.Principal;
 
 public class ApprovalModifiedEvent extends AbstractUaaEvent {
     private final Log logger = LogFactory.getLog(getClass());
-    private final Principal principal;
 
-    public ApprovalModifiedEvent(Object source, Principal authentication) {
-        super(source);
+    public ApprovalModifiedEvent(Object source, Authentication authentication) {
+        super(source, authentication);
         if (!Approval.class.isAssignableFrom(source.getClass())) {
             throw new IllegalArgumentException();
         }
-        principal = authentication;
     }
 
     @Override
@@ -39,14 +38,11 @@ public class ApprovalModifiedEvent extends AbstractUaaEvent {
         return (Approval) super.getSource();
     }
 
-    public Principal getPrincipal() {
-        return principal;
-    }
 
     @Override
     public AuditEvent getAuditEvent() {
-        Approval source = (Approval) getSource();
-        return createAuditRecord(source.getUserName(), AuditEventType.ApprovalModifiedEvent, getOrigin(principal), getData(source));
+        Approval source = getSource();
+        return createAuditRecord(source.getUserName(), AuditEventType.ApprovalModifiedEvent, getOrigin(getAuthentication()), getData(source));
     }
 
     private String getData(Approval source) {

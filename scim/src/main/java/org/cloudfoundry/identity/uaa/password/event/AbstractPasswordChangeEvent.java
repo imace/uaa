@@ -16,6 +16,7 @@ import java.security.Principal;
 
 import org.cloudfoundry.identity.uaa.audit.event.AbstractUaaEvent;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
+import org.springframework.security.core.Authentication;
 
 /**
  * @author Dave Syer
@@ -24,15 +25,12 @@ abstract class AbstractPasswordChangeEvent extends AbstractUaaEvent {
 
     private UaaUser user;
 
-    private Principal principal;
-
     private String message;
 
-    public AbstractPasswordChangeEvent(String message, UaaUser user, Principal principal) {
-        super(principal);
+    public AbstractPasswordChangeEvent(String message, UaaUser user, Authentication authentication) {
+        super(authentication);
         this.message = message;
         this.user = user;
-        this.principal = principal;
     }
 
     public UaaUser getUser() {
@@ -40,7 +38,7 @@ abstract class AbstractPasswordChangeEvent extends AbstractUaaEvent {
     }
 
     public Principal getPrincipal() {
-        return principal;
+        return getAuthentication();
     }
 
     public String getMessage() {

@@ -38,7 +38,10 @@ public enum AuditEventType {
     ClientAuthenticationSuccess(14),
     ClientAuthenticationFailure(15),
     ApprovalModifiedEvent(16),
-    TokenIssuedEvent(17);
+    TokenIssuedEvent(17),
+    UserCreatedEvent(18),
+    UserModifiedEvent(19),
+    UserVerifiedEvent(20);
 
 
     private final int code;

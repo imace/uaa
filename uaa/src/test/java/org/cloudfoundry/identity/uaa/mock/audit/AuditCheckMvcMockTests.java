@@ -390,8 +390,25 @@ public class AuditCheckMvcMockTests {
         Assert.assertEquals(1, testListener.getEventCount());
 
         ApprovalModifiedEvent approvalModifiedEvent = (ApprovalModifiedEvent) testListener.getLatestEvent();
-        Assert.assertEquals("marissa", approvalModifiedEvent.getPrincipal().getName());
+        Assert.assertEquals("marissa", approvalModifiedEvent.getAuthentication().getName());
     }
+
+    @Test
+    public void testUserCreatedEvent() throws Exception {
+
+    }
+
+    @Test
+    public void testUserModifiedEvent() throws Exception {
+
+    }
+
+    @Test
+    public void testUserVerifiedEvent() throws Exception {
+
+    }
+
+
 
     private class DefaultApplicationListener<T extends ApplicationEvent> implements ApplicationListener<T> {
         @Override

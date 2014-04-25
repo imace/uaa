@@ -415,7 +415,7 @@ public class ClientAdminEndpointsMockMvcTests {
                     //the 16-20 events are deletes
                     assertEquals(AuditEventType.ClientDeleteSuccess, event.getAuditEvent().getType());
                     assertEquals(ClientDeleteEvent.class, event.getClass());
-                    assertEquals(details[index].getClientId(), event.getAuditEvent().getPrincipalId());
+                    assertEquals(details[index-count*2].getClientId(), event.getAuditEvent().getPrincipalId());
                     break;
                 }
             }

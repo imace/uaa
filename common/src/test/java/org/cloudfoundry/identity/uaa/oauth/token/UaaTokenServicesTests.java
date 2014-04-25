@@ -149,7 +149,7 @@ public class UaaTokenServicesTests {
 
         TokenIssuedEvent event = publisher.getLatestEvent();
         Assert.assertEquals(accessToken, event.getSource());
-        Assert.assertEquals(mockAuthentication, event.getPrincipal());
+        Assert.assertEquals(mockAuthentication, event.getAuthentication());
         AuditEvent auditEvent = event.getAuditEvent();
         Assert.assertEquals("client", auditEvent.getPrincipalId());
         Assert.assertEquals("[\"read\",\"write\"]", auditEvent.getData());
@@ -599,7 +599,7 @@ public class UaaTokenServicesTests {
 
         TokenIssuedEvent event = publisher.getLatestEvent();
         Assert.assertEquals(accessToken, event.getSource());
-        Assert.assertEquals(mockAuthentication, event.getPrincipal());
+        Assert.assertEquals(mockAuthentication, event.getAuthentication());
         AuditEvent auditEvent = event.getAuditEvent();
         Assert.assertEquals("12345", auditEvent.getPrincipalId());
         Assert.assertEquals("[\"read\",\"write\"]", auditEvent.getData());

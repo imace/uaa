@@ -211,7 +211,7 @@ public class JdbcApprovalStoreTests {
 
         ApprovalModifiedEvent addEvent = eventPublisher.getLatestEvent();
         Assert.assertEquals(approval, addEvent.getSource());
-        Assert.assertEquals(authentication, addEvent.getPrincipal());
+        Assert.assertEquals(authentication, addEvent.getAuthentication());
         Assert.assertEquals("{\"scope\":\"cloud_controller.read\",\"status\":\"APPROVED\"}", addEvent.getAuditEvent().getData());
 
         approval.setStatus(DENIED);
@@ -223,7 +223,7 @@ public class JdbcApprovalStoreTests {
 
         ApprovalModifiedEvent modifyEvent = eventPublisher.getLatestEvent();
         Assert.assertEquals(approval, modifyEvent.getSource());
-        Assert.assertEquals(authentication, modifyEvent.getPrincipal());
+        Assert.assertEquals(authentication, modifyEvent.getAuthentication());
         Assert.assertEquals("{\"scope\":\"cloud_controller.read\",\"status\":\"DENIED\"}", addEvent.getAuditEvent().getData());
     }
 }

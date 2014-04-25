@@ -15,11 +15,14 @@ package org.cloudfoundry.identity.uaa.mock.audit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Matchers.matches;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -130,6 +133,24 @@ public class AuditCheckMvcMockTests {
     }
 
     @Test
+    public void userLoginAuthenticateEndpointTest() throws Exception {
+        MockHttpServletRequestBuilder loginPost = post("/authenticate")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .param("username", testAccounts.getUserName())
+            .param("password", testAccounts.getPassword());
+
+        mockMvc.perform(loginPost)
+            .andExpect(status().isOk())
+            .andExpect(content().string("{\"username\":\""+testAccounts.getUserName()+"\"}"));
+
+        ArgumentCaptor<UserAuthenticationSuccessEvent> captor  = ArgumentCaptor.forClass(UserAuthenticationSuccessEvent.class);
+        verify(listener).onApplicationEvent(captor.capture());
+        UserAuthenticationSuccessEvent event = captor.getValue();
+        assertEquals(testAccounts.getUserName(), event.getUser().getUsername());
+    }
+
+
+    @Test
     public void invalidPasswordLoginFailedTest() throws Exception {
         MockHttpServletRequestBuilder loginPost = post("/login.do")
             .accept(MediaType.TEXT_HTML_VALUE)
@@ -139,6 +160,25 @@ public class AuditCheckMvcMockTests {
         mockMvc.perform(loginPost)
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "/login?error=true"));
+
+        ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
+        verify(listener, times(2)).onApplicationEvent(captor.capture());
+
+        UserAuthenticationFailureEvent event1 = (UserAuthenticationFailureEvent)captor.getAllValues().get(0);
+        PrincipalAuthenticationFailureEvent event2 = (PrincipalAuthenticationFailureEvent)captor.getAllValues().get(1);
+        assertEquals(testAccounts.getUserName(), event1.getUser().getUsername());
+        assertEquals(testAccounts.getUserName(), event2.getName());
+    }
+
+    @Test
+    public void invalidPasswordLoginAuthenticateEndpointTest() throws Exception {
+        MockHttpServletRequestBuilder loginPost = post("/authenticate")
+            .accept(MediaType.APPLICATION_JSON_VALUE)
+            .param("username", testAccounts.getUserName())
+            .param("password", "");
+        mockMvc.perform(loginPost)
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().string("{\"error\":\"authentication failed\"}"));
 
         ArgumentCaptor<AbstractUaaEvent> captor  = ArgumentCaptor.forClass(AbstractUaaEvent.class);
         verify(listener, times(2)).onApplicationEvent(captor.capture());

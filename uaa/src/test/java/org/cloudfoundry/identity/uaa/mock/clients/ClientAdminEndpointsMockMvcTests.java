@@ -401,14 +401,14 @@ public class ClientAdminEndpointsMockMvcTests {
                     //1-10 and 21-25 events are create
                     assertEquals(AuditEventType.ClientCreateSuccess, event.getAuditEvent().getType());
                     assertEquals(ClientCreateEvent.class, event.getClass());
-                    assertEquals(details[index].getClientId(), event.getAuditEvent().getPrincipalId());
+                    assertEquals(details[index<10?index:(index-count*2)].getClientId(), event.getAuditEvent().getPrincipalId());
                     break;
                 }
                 case 2 : {
                     //the 11-15 events are update
                     assertEquals(AuditEventType.ClientUpdateSuccess, event.getAuditEvent().getType());
                     assertEquals(ClientUpdateEvent.class, event.getClass());
-                    assertEquals(details[index].getClientId(), event.getAuditEvent().getPrincipalId());
+                    assertEquals(details[index-(count*2)].getClientId(), event.getAuditEvent().getPrincipalId());
                     break;
                 }
                 case 3 : {
